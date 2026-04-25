@@ -117,4 +117,3 @@ Because sales go through `completeSale()`, you get automatic, atomic consistency
 ## License
 
 MIT — use freely as a starting point for your own POS project.
-# mobile_shop_pos
