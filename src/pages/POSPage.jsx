@@ -6,7 +6,6 @@ import { useWalletStore } from '../store/useWalletStore.js'
 import { useInventoryStore } from '../store/useInventoryStore.js'
 import Modal from '../components/ui/Modal.jsx'
 import { getMainBranch } from '../data/branches.js'
-import { DEFAULT_COMMISSION_RATE } from '../data/walletServices.js'
 import { formatCurrency } from '../utils/format.js'
 import { cn } from '../utils/cn.js'
 
@@ -69,6 +68,7 @@ export default function POSPage() {
   const [walletForm, setWalletForm] = useState({
     customerNumber: '',
     amount: '',
+    commission: '',
     serviceId: 'jazzcash',
   })
 
@@ -306,9 +306,9 @@ export default function POSPage() {
   ])
 
   const walletAmount = Number(walletForm.amount) || 0
-  const walletCommission = Math.round(walletAmount * DEFAULT_COMMISSION_RATE)
+  const walletCommission = Math.max(0, Number(walletForm.commission) || 0)
   const companyAmount = Math.max(0, walletAmount - walletCommission)
-  const commissionPercent = Math.round(DEFAULT_COMMISSION_RATE * 100)
+  const commissionPercent = walletAmount > 0 ? ((walletCommission / walletAmount) * 100).toFixed(2) : '0.00'
   const walletProfit = walletCommission
   const canSubmitWallet = walletForm.customerNumber.trim().length >= 10 && walletAmount > 0
   const barcodeMap = useMemo(
@@ -373,13 +373,13 @@ export default function POSPage() {
         discount: 0,
         tax: 0,
         meta: {
-          commissionRate: DEFAULT_COMMISSION_RATE,
+          commissionRate: walletAmount > 0 ? walletCommission / walletAmount : 0,
           commission: walletCommission,
           companyAmount,
         },
       })
 
-      setWalletForm({ customerNumber: '', amount: '', serviceId: walletForm.serviceId })
+      setWalletForm({ customerNumber: '', amount: '', commission: '', serviceId: walletForm.serviceId })
       showToast({
         kind: 'success',
         message: `${walletForm.serviceId === 'jazzcash' ? 'JazzCash' : 'Easypaisa'} service completed`,
@@ -619,7 +619,7 @@ export default function POSPage() {
           </div>
         ) : (
           <div>
-            <form onSubmit={handleWalletSubmit} className="w-full grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <form onSubmit={handleWalletSubmit} className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
               <label className="block">
                 <span className="text-[11px] uppercase tracking-wider text-ink-500">Customer number</span>
                 <input
@@ -657,6 +657,16 @@ export default function POSPage() {
                   <option value="jazzcash">JazzCash</option>
                   <option value="easypaisa">Easypaisa</option>
                 </select>
+              </label>
+              <label className="block">
+                <span className="text-[11px] uppercase tracking-wider text-ink-500">Commission (PKR)</span>
+                <input
+                  value={walletForm.commission}
+                  onChange={(e) => setWalletForm((p) => ({ ...p, commission: e.target.value }))}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className="input mt-1 font-mono"
+                />
               </label>
               <button type="submit" disabled={!canSubmitWallet || isWalletSubmitting} className="btn-primary h-11 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
                 {isWalletSubmitting && !fastMode && <Loader2 className="w-4 h-4 animate-spin" />}
