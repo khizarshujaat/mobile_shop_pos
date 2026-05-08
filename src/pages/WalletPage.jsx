@@ -33,6 +33,7 @@ export default function WalletPage() {
   )
 
   const openingRows = openingAccounts.filter((a) => Number(a.amount) > 0)
+  const todaysOpeningBalance = openingRows.reduce((sum, a) => sum + (Number(a.amount) || 0), 0)
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -64,6 +65,38 @@ export default function WalletPage() {
           </button>
         </div>
       </header>
+
+      <section className="card p-4 lg:p-5">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-ink-400">Today</div>
+          <h3 className="text-base font-semibold text-ink-900">Opening Balance</h3>
+          <p className="text-sm text-ink-500 mt-0.5">
+            Opening by account (separate) with final combined total.
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          {openingRows.length === 0 ? (
+            <div className="md:col-span-3 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm text-ink-500">
+              No opening balances added yet.
+            </div>
+          ) : (
+            openingRows.map((account) => (
+              <div key={account.id} className="rounded-lg border border-ink-100 bg-white px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wider text-ink-500">{account.label}</div>
+                <div className="text-sm font-semibold text-ink-900 tabular-nums mt-0.5">
+                  {formatCurrency(Number(account.amount) || 0)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="mt-4 pt-3 border-t border-ink-100 flex items-center justify-between">
+          <div className="text-xs uppercase tracking-wider text-ink-500">Grand Total Opening</div>
+          <div className="font-display text-2xl font-semibold text-ink-900 tabular-nums">
+            {formatCurrency(todaysOpeningBalance)}
+          </div>
+        </div>
+      </section>
 
       <section className="card p-4 lg:p-5">
         <div className="flex items-center justify-between gap-3">

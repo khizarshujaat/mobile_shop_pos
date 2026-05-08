@@ -13,7 +13,6 @@ export default function POSPage() {
   const branch = getMainBranch()
   const inputRef = useRef(null)
   const walletNumberRef = useRef(null)
-  const walletAmountRef = useRef(null)
   const discountInputRef = useRef(null)
   const toastTimerRef = useRef(null)
   const audioCtxRef = useRef(null)
@@ -49,7 +48,7 @@ export default function POSPage() {
   const products = useInventoryStore((s) => s.products)
 
   const itemCount = useMemo(() => cart.reduce((n, i) => n + i.qty, 0), [cart])
-  const [mode, setMode] = useState('product') // 'product' | 'wallet'
+  const [mode] = useState('product') // unified POS keeps both flows in one view
   const [fastMode, setFastMode] = useState(false)
   const [barcode, setBarcode] = useState('')
   const [barcodeFocused, setBarcodeFocused] = useState(false)
@@ -66,8 +65,6 @@ export default function POSPage() {
   const [scanError, setScanError] = useState(false)
   const [toast, setToast] = useState(null) // { kind: 'success' | 'error', message: string }
   const [walletForm, setWalletForm] = useState({
-    customerNumber: '',
-    amount: '',
     commission: '',
     serviceId: 'jazzcash',
   })
@@ -305,12 +302,9 @@ export default function POSPage() {
     showToast,
   ])
 
-  const walletAmount = Number(walletForm.amount) || 0
   const walletCommission = Math.max(0, Number(walletForm.commission) || 0)
-  const companyAmount = Math.max(0, walletAmount - walletCommission)
-  const commissionPercent = walletAmount > 0 ? ((walletCommission / walletAmount) * 100).toFixed(2) : '0.00'
   const walletProfit = walletCommission
-  const canSubmitWallet = walletForm.customerNumber.trim().length >= 10 && walletAmount > 0
+  const canSubmitWallet = walletCommission > 0
   const barcodeMap = useMemo(
     () => new Map(products.map((p) => [String(p.barcode), p])),
     [products],
@@ -366,20 +360,20 @@ export default function POSPage() {
       addWalletTx({
         kind: 'sale',
         paymentMethodId: walletForm.serviceId,
-        amount: walletAmount,
-        note: `Wallet service ${walletForm.serviceId}`,
-        customer: { name: 'Walk-in', phone: walletForm.customerNumber.trim() },
-        subtotal: walletAmount,
+        amount: walletCommission,
+        note: `Wallet commission ${walletForm.serviceId}`,
+        customer: { name: 'Walk-in', phone: '' },
+        subtotal: walletCommission,
         discount: 0,
         tax: 0,
         meta: {
-          commissionRate: walletAmount > 0 ? walletCommission / walletAmount : 0,
+          commissionRate: 1,
           commission: walletCommission,
-          companyAmount,
+          companyAmount: 0,
         },
       })
 
-      setWalletForm({ customerNumber: '', amount: '', commission: '', serviceId: walletForm.serviceId })
+      setWalletForm({ commission: '', serviceId: walletForm.serviceId })
       showToast({
         kind: 'success',
         message: `${walletForm.serviceId === 'jazzcash' ? 'JazzCash' : 'Easypaisa'} service completed`,
@@ -489,29 +483,12 @@ export default function POSPage() {
 
       {/* Barcode input */}
       <div className="px-4 lg:px-6 py-4 bg-ink-50 border-b border-ink-100 space-y-3">
-        <div className="inline-flex rounded-xl border border-ink-200 bg-white p-1">
-          <button
-            onClick={() => setMode('product')}
-            className={cn(
-              'px-3 py-1.5 text-sm rounded-lg font-medium transition-colors',
-              mode === 'product' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50',
-            )}
-          >
-            Product Sale
-          </button>
-          <button
-            onClick={() => setMode('wallet')}
-            className={cn(
-              'px-3 py-1.5 text-sm rounded-lg font-medium transition-colors',
-              mode === 'wallet' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50',
-            )}
-          >
-            Wallet Service
-          </button>
+        <div className="inline-flex items-center rounded-xl border border-ink-200 bg-white px-3 py-2">
+          <span className="text-sm font-medium text-ink-800">Unified Sale View</span>
+          <span className="ml-2 text-xs text-ink-500">Product + Wallet in same screen</span>
         </div>
 
-        {mode === 'product' ? (
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-3 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-3 items-start">
             <div className="w-full min-w-0">
               <label className="text-[11px] uppercase tracking-wider text-ink-500 flex items-center gap-2">
                 <ScanLine className="w-4 h-4 text-brand-600" />
@@ -588,6 +565,37 @@ export default function POSPage() {
                   Barcode not found in mock products.
                 </div>
               )}
+
+              <form
+                onSubmit={handleWalletSubmit}
+                className="mt-3 pt-3 border-t border-ink-200 grid grid-cols-1 md:grid-cols-3 gap-3 items-end"
+              >
+                <label className="block">
+                  <span className="text-[11px] uppercase tracking-wider text-ink-500">Service</span>
+                  <select
+                    value={walletForm.serviceId}
+                    onChange={(e) => setWalletForm((p) => ({ ...p, serviceId: e.target.value }))}
+                    className="input mt-1"
+                  >
+                    <option value="jazzcash">JazzCash</option>
+                    <option value="easypaisa">Easypaisa</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] uppercase tracking-wider text-ink-500">Commission (PKR)</span>
+                  <input
+                    value={walletForm.commission}
+                    onChange={(e) => setWalletForm((p) => ({ ...p, commission: e.target.value }))}
+                    placeholder="0"
+                    inputMode="decimal"
+                    className="input mt-1 font-mono"
+                  />
+                </label>
+                <button type="submit" disabled={!canSubmitWallet || isWalletSubmitting} className="btn-primary h-11 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
+                  {isWalletSubmitting && !fastMode && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isWalletSubmitting ? 'Submitting…' : 'Submit Wallet'}
+                </button>
+              </form>
             </div>
 
             <div className="w-full max-w-[420px] justify-self-end rounded-xl border border-ink-100 bg-white p-3.5 shadow-card">
@@ -616,65 +624,7 @@ export default function POSPage() {
                 </ul>
               </div>
             </div>
-          </div>
-        ) : (
-          <div>
-            <form onSubmit={handleWalletSubmit} className="w-full grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-              <label className="block">
-                <span className="text-[11px] uppercase tracking-wider text-ink-500">Customer number</span>
-                <input
-                  ref={walletNumberRef}
-                  value={walletForm.customerNumber}
-                  onChange={(e) => setWalletForm((p) => ({ ...p, customerNumber: e.target.value.replace(/\D/g, '') }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === 'Tab') {
-                      walletAmountRef.current?.focus()
-                    }
-                  }}
-                  placeholder="03XXXXXXXXX"
-                  inputMode="numeric"
-                  className="input mt-1 font-mono"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[11px] uppercase tracking-wider text-ink-500">Amount (PKR)</span>
-                <input
-                  ref={walletAmountRef}
-                  value={walletForm.amount}
-                  onChange={(e) => setWalletForm((p) => ({ ...p, amount: e.target.value }))}
-                  placeholder="5000"
-                  inputMode="decimal"
-                  className="input mt-1 font-mono"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[11px] uppercase tracking-wider text-ink-500">Service</span>
-                <select
-                  value={walletForm.serviceId}
-                  onChange={(e) => setWalletForm((p) => ({ ...p, serviceId: e.target.value }))}
-                  className="input mt-1"
-                >
-                  <option value="jazzcash">JazzCash</option>
-                  <option value="easypaisa">Easypaisa</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-[11px] uppercase tracking-wider text-ink-500">Commission (PKR)</span>
-                <input
-                  value={walletForm.commission}
-                  onChange={(e) => setWalletForm((p) => ({ ...p, commission: e.target.value }))}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className="input mt-1 font-mono"
-                />
-              </label>
-              <button type="submit" disabled={!canSubmitWallet || isWalletSubmitting} className="btn-primary h-11 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
-                {isWalletSubmitting && !fastMode && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isWalletSubmitting ? 'Submitting…' : 'Submit Service'}
-              </button>
-            </form>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Main layout */}
@@ -842,10 +792,7 @@ export default function POSPage() {
                   </div>
                 </div>
                 <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <SummaryRow label="Total Amount" value={formatCurrency(walletAmount)} />
-                  <SummaryRow label="Commission Percentage" value={`${commissionPercent}%`} />
-                  <SummaryRow label="Commission Earned" value={formatCurrency(walletCommission)} />
-                  <SummaryRow label="Company Share" value={formatCurrency(companyAmount)} />
+                  <SummaryRow label="Commission Entered" value={formatCurrency(walletCommission)} />
                   <SummaryRow label="Your Profit" value={formatCurrency(walletProfit)} />
                   <SummaryRow
                     label="Selected service"
