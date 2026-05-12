@@ -4,6 +4,7 @@ import {
   Wallet,
   Package,
   BarChart3,
+  Shield,
   Settings,
   Sparkles,
 } from 'lucide-react'
@@ -14,7 +15,8 @@ const NAV_ITEMS = [
   { to: '/wallet',    label: 'Wallet',    icon: Wallet,       shortcut: '2' },
   { to: '/inventory', label: 'Inventory', icon: Package,      shortcut: '3' },
   { to: '/reports',   label: 'Reports',   icon: BarChart3,    shortcut: '4' },
-  { to: '/settings',  label: 'Settings',  icon: Settings,     shortcut: '5' },
+  { to: '/admin',     label: 'Admin',     icon: Shield,       shortcut: '5' },
+  { to: '/settings',  label: 'Settings',  icon: Settings,     shortcut: '6' },
 ]
 
 export default function AppLayout() {
